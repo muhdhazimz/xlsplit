@@ -29,6 +29,15 @@ store: dict[str, Any] = {}
 async def index() -> Template:
     return Template(template_name="index.html")
 
+import sys
+import os
+
+# Handle PyInstaller bundled path
+if getattr(sys, 'frozen', False):
+    BASE_DIR = Path(sys._MEIPASS)
+else:
+    BASE_DIR = Path(__file__).parent
+
 
 @post("/upload")
 async def upload(
@@ -177,10 +186,10 @@ app = Litestar(
         split,
         download_single,
         download_all,
-        create_static_files_router(path="/static", directories=["static"]),
+        create_static_files_router(path="/static", directories=[BASE_DIR / "static"]),
     ],
     template_config=TemplateConfig(
-        directory=Path("templates"),
+        directory=BASE_DIR / "templates",
         engine=JinjaTemplateEngine,
     ),
 )
