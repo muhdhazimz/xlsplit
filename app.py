@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
+import sys
 import io
 import math
-import tempfile
 import threading
 import webbrowser
 import zipfile
@@ -11,7 +12,7 @@ from typing import Any
 
 import pandas as pd
 from litestar import Litestar, get, post
-from litestar.response import Response, Template, Stream
+from litestar.response import Response, Template
 from litestar.datastructures import UploadFile
 from litestar.enums import RequestEncodingType
 from litestar.params import Body
@@ -19,8 +20,16 @@ from litestar.static_files import create_static_files_router
 from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.template.config import TemplateConfig
 
-# ── In-memory store ──────────────────────────────────────────────────────────
+# ── PyInstaller path fix ──────────────────────────────────────────────────────
+if getattr(sys, 'frozen', False):
+    BASE_DIR = Path(sys._MEIPASS)
+else:
+    BASE_DIR = Path(__file__).parent
+
+# ── In-memory store ───────────────────────────────────────────────────────────
 store: dict[str, Any] = {}
+
+PORT = 8008
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -177,10 +186,10 @@ app = Litestar(
         split,
         download_single,
         download_all,
-        create_static_files_router(path="/static", directories=["static"]),
+        create_static_files_router(path="/static", directories=[str(BASE_DIR / "static")]),
     ],
     template_config=TemplateConfig(
-        directory=Path("templates"),
+        directory=BASE_DIR / "templates",
         engine=JinjaTemplateEngine,
     ),
 )
@@ -188,5 +197,17 @@ app = Litestar(
 
 if __name__ == "__main__":
     import uvicorn
+
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, 'w')
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, 'w')
+
     threading.Thread(target=open_browser, daemon=True).start()
-    uvicorn.run("app:app", host="127.0.0.1", port=8008, reload=False)
+    uvicorn.run(
+        app,
+        host="127.0.0.1",
+        port=PORT,
+        reload=False,
+        log_config=None,
+    )
