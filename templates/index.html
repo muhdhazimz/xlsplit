@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en" x-data="app()" x-init="initTheme()" :class="{ 'dark': darkMode }">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Docunova — XLSplit</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+
+  <!-- Alpine -->
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* Dropzone */
+    .dropzone {
+      border: 2px dashed;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .dropzone:hover { transform: scale(1.003); }
+    .dropzone.dragging { transform: scale(1.005); }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { animation: spin 0.75s linear infinite; }
+
+    /* Fade in */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.3s ease forwards; }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+    .dark ::-webkit-scrollbar-thumb { background: #475569; }
+
+    /* File card hover */
+    .file-row { transition: background 0.15s; }
+
+    /* Collapse transition (Alpine x-collapse polyfill via max-height) */
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
+
+<div class="flex h-screen overflow-hidden">
+
+  <!-- ── Sidebar ── -->
+  <aside
+    class="fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
+           transform transition-transform duration-200 lg:static lg:translate-x-0 flex flex-col"
+    :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+  >
+    <!-- Logo -->
+    <div class="h-14 flex items-center px-4 gap-3 border-b border-gray-200 dark:border-gray-700 shrink-0">
+      <div class="w-9 h-9 rounded-lg bg-teal-500 flex items-center justify-center shrink-0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14,2 14,8 20,8"/>
+          <line x1="8" y1="13" x2="16" y2="13"/>
+          <line x1="8" y1="17" x2="13" y2="17"/>
+        </svg>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-sm text-gray-800 dark:text-gray-100 tracking-tight">Docunova</span>
+        <span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+        <span class="font-semibold text-sm text-teal-600 dark:text-teal-400 tracking-tight">XLSplit</span>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="p-3 space-y-1 text-sm flex-1 overflow-y-auto">
+
+      <!-- Active item -->
+      <a href="#"
+        class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium
+               bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14,2 14,8 20,8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <line x1="10" y1="9" x2="8" y2="9"/>
+        </svg>
+        Split Files
+      </a>
+
+      <!-- Dropdown: History -->
+      <div x-data="{ open: false }">
+        <button @click="open = !open"
+          class="flex items-center justify-between w-full rounded-lg px-3 py-2
+                 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition font-medium">
+          <span class="flex items-center gap-3">
+            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            History
+          </span>
+          <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" :class="{ 'rotate-180': open }"
+               viewBox="0 0 20 20" fill="currentColor">
+            <path d="M5.5 7.5L10 12l4.5-4.5"/>
+          </svg>
+        </button>
+        <div x-show="open" class="mt-1 ml-7 space-y-0.5 text-sm text-gray-500 dark:text-gray-400">
+          <a href="#" class="block px-3 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition">Recent splits</a>
+          <a href="#" class="block px-3 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition">All files</a>
+        </div>
+      </div>
+
+    </nav>
+
+    <!-- Sidebar Footer -->
+    <div class="p-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400 mono shrink-0">
+      v1.0 · Built by Hazim Zaharuddin
+    </div>
+  </aside>
+
+  <!-- Mobile Overlay -->
+  <div class="fixed inset-0 bg-black/40 z-20 lg:hidden" x-show="sidebarOpen"
+       @click="sidebarOpen = false" x-transition></div>
+
+  <!-- ── Main Column ── -->
+  <div class="flex flex-col flex-1 min-w-0">
+
+    <!-- App Bar -->
+    <header class="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700
+                   flex items-center px-4 gap-3 shrink-0">
+
+      <!-- Mobile hamburger -->
+      <button class="lg:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              @click="sidebarOpen = true">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+
+      <!-- Search -->
+      <div class="flex-1 flex justify-center">
+        <div class="relative w-full max-w-md">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+               fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input type="text" placeholder="Search files…"
+            class="w-full rounded-full border border-gray-200 dark:border-gray-600
+                   bg-gray-50 dark:bg-gray-700 pl-9 pr-4 py-1.5 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-teal-400 transition" />
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center gap-2">
+
+        <!-- Theme toggle -->
+        <button @click="toggleTheme()"
+          class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+          :title="darkMode ? 'Light mode' : 'Dark mode'">
+          <svg x-show="!darkMode" class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+          </svg>
+          <svg x-show="darkMode" class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+          </svg>
+        </button>
+
+        <!-- Avatar dropdown -->
+        <div x-data="{ open: false }" class="relative">
+          <button @click="open = !open" @click.outside="open = false"
+            class="w-8 h-8 rounded-full bg-teal-500 text-white text-sm font-semibold
+                   flex items-center justify-center hover:ring-2 hover:ring-teal-400 transition">
+            H
+          </button>
+          <div x-show="open" x-transition
+               class="absolute right-0 mt-2 w-40 rounded-xl shadow-lg border
+                      bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 py-1 z-50">
+            <button class="w-full flex items-center gap-2 px-4 py-2 text-sm
+                           text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+              </svg>
+              Settings
+            </button>
+            <button class="w-full flex items-center gap-2 px-4 py-2 text-sm
+                           text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Log out
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── Content ── -->
+    <main class="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-6">
+      <div class="max-w-3xl mx-auto space-y-5">
+
+        <!-- Page title -->
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-xl font-bold tracking-tight">Split Spreadsheet</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+              Upload an Excel or CSV file and divide it into smaller chunks
+            </p>
+          </div>
+          <!-- Row counter badge -->
+          <div x-show="fileData"
+               class="mono text-xs bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400
+                      border border-teal-200 dark:border-teal-800 px-3 py-1 rounded-full fade-up">
+            <span x-text="fileData?.total_rows?.toLocaleString()"></span> rows loaded
+          </div>
+        </div>
+
+        <!-- ── STEP 1: Upload ── -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2.5">
+            <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0
+                        mono"
+                 :class="fileData ? 'bg-teal-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'">
+              <span x-show="!fileData">1</span>
+              <span x-show="fileData">✓</span>
+            </div>
+            <span class="font-semibold text-sm">Upload file</span>
+            <span class="text-xs text-gray-400 mono ml-auto">.xlsx · .xls · .csv</span>
+          </div>
+
+          <div class="p-5">
+
+            <!-- Drop zone (shown when no file) -->
+            <div x-show="!fileData"
+              class="dropzone rounded-xl p-10 text-center
+                     border-gray-300 dark:border-gray-600
+                     hover:border-teal-400 dark:hover:border-teal-500
+                     bg-gray-50 dark:bg-gray-900/50"
+              :class="{ 'dragging border-teal-400 bg-teal-50 dark:bg-teal-900/20': isDragging }"
+              @dragover.prevent="isDragging = true"
+              @dragleave.prevent="isDragging = false"
+              @drop.prevent="handleDrop($event)"
+              @click="$refs.fileInput.click()"
+            >
+              <input type="file" x-ref="fileInput" class="hidden" accept=".xlsx,.xls,.csv"
+                     @change="handleFileChange($event)" />
+              <div class="w-12 h-12 rounded-xl bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center mx-auto mb-3">
+                <svg class="w-6 h-6 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor"
+                     stroke-width="1.8" viewBox="0 0 24 24">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </div>
+              <p class="font-semibold text-sm mb-1">Drop your file here</p>
+              <p class="text-xs text-gray-400">or click to browse</p>
+            </div>
+
+            <!-- File loaded -->
+            <div x-show="fileData" class="fade-up space-y-4">
+              <!-- File info row -->
+              <div class="flex items-center gap-3 p-3 bg-teal-50 dark:bg-teal-900/20
+                          border border-teal-200 dark:border-teal-800 rounded-xl">
+                <div class="w-9 h-9 rounded-lg bg-teal-500 flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-sm truncate" x-text="fileData?.filename"></p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mono mt-0.5">
+                    <span x-text="fileData?.total_rows?.toLocaleString()"></span> rows ·
+                    <span x-text="fileData?.columns?.length"></span> columns
+                  </p>
+                </div>
+                <button @click="resetFile()"
+                  class="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition font-medium px-2 py-1
+                         rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
+                  Remove
+                </button>
+              </div>
+
+              <!-- Preview table -->
+              <div class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-auto"
+                   style="max-height: 200px;">
+                <table class="w-full text-xs">
+                  <thead class="sticky top-0">
+                    <tr>
+                      <th class="px-3 py-2 text-left font-medium bg-gray-100 dark:bg-gray-700
+                                 text-gray-400 mono w-8">#</th>
+                      <template x-for="col in fileData?.columns" :key="col">
+                        <th class="px-3 py-2 text-left font-semibold bg-gray-100 dark:bg-gray-700
+                                   text-gray-600 dark:text-gray-300 whitespace-nowrap"
+                            x-text="col"></th>
+                      </template>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    <template x-for="(row, ri) in fileData?.preview" :key="ri">
+                      <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                        <td class="px-3 py-2 text-gray-300 dark:text-gray-600 mono"
+                            x-text="ri + 1"></td>
+                        <template x-for="(cell, ci) in row" :key="ci">
+                          <td class="px-3 py-2 text-gray-600 dark:text-gray-400 max-w-xs truncate"
+                              x-text="cell || '—'"></td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+                <div class="text-center py-2 text-xs text-gray-400 mono border-t
+                            border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+                  Preview: 5 of <span x-text="fileData?.total_rows?.toLocaleString()"></span> rows
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── STEP 2: Configure ── -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+             x-show="fileData" class="fade-up">
+          <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2.5">
+            <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mono"
+                 :class="splitResult ? 'bg-teal-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'">
+              <span x-show="!splitResult">2</span>
+              <span x-show="splitResult">✓</span>
+            </div>
+            <span class="font-semibold text-sm">Configure split</span>
+          </div>
+
+          <div class="p-5">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+
+              <!-- Rows per file -->
+              <div class="sm:col-span-1">
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide mono">
+                  Rows per file
+                </label>
+                <div class="flex items-center gap-2">
+                  <button @click="rowsPerFile = Math.max(100, rowsPerFile - 100)"
+                    class="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center
+                           justify-center text-gray-500 hover:border-teal-400 hover:text-teal-600 transition font-bold text-lg">
+                    −
+                  </button>
+                  <input type="number" class="flex-1 text-center rounded-lg border border-gray-200 dark:border-gray-600
+                           bg-white dark:bg-gray-900 py-1.5 text-sm font-bold mono
+                           focus:outline-none focus:ring-2 focus:ring-teal-400"
+                         x-model.number="rowsPerFile" min="100"
+                         @blur="rowsPerFile = Math.max(100, rowsPerFile || 100)" />
+                  <button @click="rowsPerFile += 100"
+                    class="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center
+                           justify-center text-gray-500 hover:border-teal-400 hover:text-teal-600 transition font-bold text-lg">
+                    +
+                  </button>
+                </div>
+                <p class="text-xs text-gray-400 mt-1.5 mono">Min: 100 rows</p>
+              </div>
+
+              <!-- Output format -->
+              <div class="sm:col-span-1">
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide mono">
+                  Output format
+                </label>
+                <div class="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                  <button @click="outputFormat = 'csv'"
+                    class="flex-1 py-2 text-sm font-semibold transition"
+                    :class="outputFormat === 'csv'
+                      ? 'bg-teal-500 text-white'
+                      : 'bg-white dark:bg-gray-900 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'">
+                    CSV
+                  </button>
+                  <button @click="outputFormat = 'xlsx'"
+                    class="flex-1 py-2 text-sm font-semibold border-l border-gray-200 dark:border-gray-600 transition"
+                    :class="outputFormat === 'xlsx'
+                      ? 'bg-teal-500 text-white'
+                      : 'bg-white dark:bg-gray-900 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'">
+                    XLSX
+                  </button>
+                </div>
+              </div>
+
+              <!-- Estimated output -->
+              <div class="sm:col-span-1">
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide mono">
+                  Estimated files
+                </label>
+                <div class="flex items-end gap-1.5">
+                  <span class="text-4xl font-bold tracking-tight text-teal-600 dark:text-teal-400 mono"
+                        x-text="estimatedFiles"></span>
+                  <span class="text-sm text-gray-400 pb-1">files</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Split button -->
+            <div class="mt-5 flex items-center gap-4">
+              <button @click="splitFile()" :disabled="splitting"
+                class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold
+                       bg-teal-500 hover:bg-teal-600 text-white transition disabled:opacity-50
+                       disabled:cursor-not-allowed">
+                <svg x-show="splitting" class="spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" stroke="white" stroke-width="3" stroke-dasharray="25 75"/>
+                </svg>
+                <span x-text="splitting ? 'Splitting…' : 'Split File'"></span>
+              </button>
+              <p x-show="splitResult" class="text-sm text-teal-600 dark:text-teal-400 font-medium fade-up">
+                ✓ <span x-text="splitResult?.num_files"></span> files ready to download
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── STEP 3: Download ── -->
+        <div x-show="splitResult" class="space-y-3 fade-up">
+          <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2.5">
+              <div class="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center
+                          justify-center text-xs font-bold text-gray-500 mono shrink-0">3</div>
+              <span class="font-semibold text-sm">Download files</span>
+              <!-- Download all -->
+              <div class="flex gap-2 ml-auto">
+                <button @click="downloadAll('csv')"
+                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                         bg-gray-800 dark:bg-gray-700 text-white hover:bg-gray-700 dark:hover:bg-gray-600 transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  All CSV
+                </button>
+                <button @click="downloadAll('xlsx')"
+                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                         bg-teal-600 text-white hover:bg-teal-700 transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  All XLSX
+                </button>
+              </div>
+            </div>
+
+            <!-- File list -->
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+              <template x-for="file in splitResult?.files" :key="file.index">
+                <div class="file-row flex items-center gap-3 px-5 py-3
+                            hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                  <!-- Part badge -->
+                  <div class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center
+                               justify-center mono text-xs font-bold text-gray-500 shrink-0"
+                       x-text="`P${file.index + 1}`"></div>
+                  <!-- Name + info -->
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium truncate" x-text="file.name"></p>
+                    <p class="text-xs text-gray-400 mono mt-0.5">
+                      <span x-text="file.rows.toLocaleString()"></span> rows ·
+                      <span x-text="file.range"></span>
+                    </p>
+                  </div>
+                  <!-- Download buttons -->
+                  <div class="flex gap-1.5 shrink-0">
+                    <button @click="downloadSingle(file.index, 'csv')"
+                      class="px-2.5 py-1.5 rounded-lg text-xs font-semibold border
+                             border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300
+                             hover:border-teal-400 hover:text-teal-600 transition">
+                      CSV
+                    </button>
+                    <button @click="downloadSingle(file.index, 'xlsx')"
+                      class="px-2.5 py-1.5 rounded-lg text-xs font-semibold
+                             bg-teal-500 text-white hover:bg-teal-600 transition">
+                      XLSX
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /max-w -->
+    </main>
+  </div><!-- /main col -->
+</div>
+
+<!-- Error toast -->
+<div x-show="error" x-transition
+     class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3
+            px-4 py-3 rounded-xl shadow-lg text-sm font-medium
+            bg-red-500 text-white min-w-64 max-w-sm">
+  <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+  </svg>
+  <span x-text="error" class="flex-1"></span>
+  <button @click="error = ''" class="opacity-70 hover:opacity-100 transition ml-1">×</button>
+</div>
+
+<script>
+function app() {
+  return {
+    sidebarOpen: false,
+    darkMode: false,
+    isDragging: false,
+    fileData: null,
+    rowsPerFile: 500,
+    outputFormat: 'csv',
+    splitting: false,
+    splitResult: null,
+    error: '',
+
+    initTheme() {
+      this.darkMode = localStorage.getItem('theme') === 'dark';
+    },
+    toggleTheme() {
+      this.darkMode = !this.darkMode;
+      localStorage.setItem('theme', this.darkMode ? 'dark' : 'light');
+    },
+
+    get estimatedFiles() {
+      if (!this.fileData) return 0;
+      return Math.ceil(this.fileData.total_rows / Math.max(100, this.rowsPerFile || 100));
+    },
+
+    handleDrop(e) {
+      this.isDragging = false;
+      const file = e.dataTransfer.files[0];
+      if (file) this.uploadFile(file);
+    },
+    handleFileChange(e) {
+      const file = e.target.files[0];
+      if (file) this.uploadFile(file);
+    },
+
+    async uploadFile(file) {
+      const fd = new FormData();
+      fd.append('data', file);
+      try {
+        const res = await fetch('/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.error) { this.showError(data.error); return; }
+        this.fileData = data;
+        this.splitResult = null;
+      } catch {
+        this.showError('Upload failed. Please try again.');
+      }
+    },
+
+    resetFile() {
+      this.fileData = null;
+      this.splitResult = null;
+      if (this.$refs.fileInput) this.$refs.fileInput.value = '';
+    },
+
+    async splitFile() {
+      if (!this.fileData) return;
+      this.rowsPerFile = Math.max(100, this.rowsPerFile || 100);
+      this.splitting = true;
+      try {
+        const res = await fetch('/split', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows_per_file: this.rowsPerFile }),
+        });
+        const data = await res.json();
+        if (data.error) { this.showError(data.error); return; }
+        this.splitResult = data;
+      } catch {
+        this.showError('Split failed. Please try again.');
+      } finally {
+        this.splitting = false;
+      }
+    },
+
+    downloadSingle(index, fmt) {
+      window.location.href = `/download/${index}?format=${fmt}`;
+    },
+    downloadAll(fmt) {
+      window.location.href = `/download-all?format=${fmt}`;
+    },
+
+    showError(msg) {
+      this.error = msg;
+      setTimeout(() => { this.error = ''; }, 4000);
+    },
+  };
+}
+</script>
+</body>
+</html>
