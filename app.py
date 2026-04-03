@@ -173,10 +173,26 @@ async def download_all(format: str = "csv") -> Response:
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
+def is_port_in_use(port: int) -> bool:
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('127.0.0.1', port)) == 0
+
 def open_browser() -> None:
     import time
-    time.sleep(1.2)
-    webbrowser.open("http://127.0.0.1:8008")
+    time.sleep(2.5)
+    webbrowser.open(f"http://127.0.0.1:{PORT}")
+
+
+@get("/shutdown")
+async def shutdown() -> Response:
+    threading.Thread(target=_shutdown).start()
+    return Response(content=b"Shutting down...", status_code=200)
+
+def _shutdown() -> None:
+    import time
+    time.sleep(0.5)
+    os.kill(os.getpid(), 9)
 
 
 app = Litestar(
@@ -186,6 +202,7 @@ app = Litestar(
         split,
         download_single,
         download_all,
+        shutdown,
         create_static_files_router(path="/static", directories=[str(BASE_DIR / "static")]),
     ],
     template_config=TemplateConfig(
@@ -197,6 +214,10 @@ app = Litestar(
 
 if __name__ == "__main__":
     import uvicorn
+
+    if is_port_in_use(PORT):
+        webbrowser.open(f"http://127.0.0.1:{PORT}")
+        sys.exit(0)
 
     if sys.stdout is None:
         sys.stdout = open(os.devnull, 'w')

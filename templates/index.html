@@ -124,8 +124,15 @@
     </nav>
 
     <!-- Sidebar Footer -->
-    <div class="p-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400 mono shrink-0">
-      v1.0 · Built by Hazim Zaharuddin
+    <div class="p-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400 mono shrink-0 flex items-center justify-between">
+      <span>v1.0 · Built by Hazim Zaharuddin</span>
+      <button
+        onclick="fetch('/shutdown').then(() => window.close())"
+        class="text-red-400 hover:text-red-600 transition font-medium"
+        title="Quit app"
+      >
+        ✕ Quit
+      </button>
     </div>
   </aside>
 
