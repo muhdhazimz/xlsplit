@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -18,8 +21,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Build
+      - name: Install PyInstaller explicitly
+        run: pip install pyinstaller
+
+      - name: Build EXE
         run: pyinstaller xlsplit.spec
+
+      - name: List dist folder
+        run: dir dist
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
