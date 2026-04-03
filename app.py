@@ -29,15 +29,6 @@ store: dict[str, Any] = {}
 async def index() -> Template:
     return Template(template_name="index.html")
 
-import sys
-import os
-
-# Handle PyInstaller bundled path
-if getattr(sys, 'frozen', False):
-    BASE_DIR = Path(sys._MEIPASS)
-else:
-    BASE_DIR = Path(__file__).parent
-
 
 @post("/upload")
 async def upload(
@@ -176,7 +167,7 @@ async def download_all(format: str = "csv") -> Response:
 def open_browser() -> None:
     import time
     time.sleep(1.2)
-    webbrowser.open("http://127.0.0.1:8000")
+    webbrowser.open("http://127.0.0.1:8008")
 
 
 app = Litestar(
@@ -186,10 +177,10 @@ app = Litestar(
         split,
         download_single,
         download_all,
-        create_static_files_router(path="/static", directories=[BASE_DIR / "static"]),
+        create_static_files_router(path="/static", directories=["static"]),
     ],
     template_config=TemplateConfig(
-        directory=BASE_DIR / "templates",
+        directory=Path("templates"),
         engine=JinjaTemplateEngine,
     ),
 )
@@ -198,10 +189,4 @@ app = Litestar(
 if __name__ == "__main__":
     import uvicorn
     threading.Thread(target=open_browser, daemon=True).start()
-    uvicorn.run(
-        "app:app",
-        host="127.0.0.1",
-        port=8008,
-        reload=False,
-        log_config=None,
-    )
+    uvicorn.run("app:app", host="127.0.0.1", port=8008, reload=False)
